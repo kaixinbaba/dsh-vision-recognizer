@@ -1,0 +1,81 @@
+{
+  "name": "dsh-vision-recognizer",
+  "version": "0.1.0",
+  "description": "DeepSeek Harness image recognition plugin: keep DeepSeek as the conversation brain while a configurable vision model (15+ providers, OpenAI-compatible + Anthropic) transcribes attached images. Configurable from Settings → Plugins.",
+  "private": false,
+  "type": "module",
+  "main": "lib/index.js",
+  "license": "MIT",
+  "author": {
+    "name": "dsh-vision-recognizer contributors"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaixinbaba/dsh-vision-recognizer.git"
+  },
+  "homepage": "https://github.com/kaixinbaba/dsh-vision-recognizer#readme",
+  "bugs": {
+    "url": "https://github.com/kaixinbaba/dsh-vision-recognizer/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "plugin",
+    "vision",
+    "multimodal",
+    "image",
+    "image-understanding",
+    "ocr",
+    "vlm",
+    "qwen",
+    "dashscope",
+    "openai",
+    "anthropic",
+    "gemini",
+    "zhipu",
+    "ollama"
+  ],
+  "engines": {
+    "node": ">=22.19.0",
+    "dsh": ">=0.1.0-rc.6"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-settings",
+        "@deepseek-ai/dsh-client-ui-theme"
+      ],
+      "platform": "web"
+    }
+  },
+  "exports": {
+    ".": "./lib/index.js",
+    "./client": "./client/client.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "client",
+    "cordis.patch.yml",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "schemastery": "^3.18.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}

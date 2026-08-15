@@ -1,0 +1,29 @@
+# dsh-vision-recognizer bundle patch: one insert over the profile tree.
+# The plugin row activates only when this package is installed as a profile
+# dependency (e.g. `dsh plugin --profile web add dsh-vision-recognizer`).
+#
+# Defaults are deliberately minimal — the interactive configuration lives in
+# Settings → Plugins → 识图, and is persisted to $DSH_HOME/vision-recognizer.json.
+# The values below are only the composition-time fallback.
+#
+# IMPORTANT (patch semantics): this is an `insert`, which appends the row to the
+# entry list. Do NOT override it with a top-level `- id:` entry in your own
+# cordis.patch.yml and then also keep a second `- insert:` for the same id, or
+# the adapter registers twice. Configure through the Settings UI, or override
+# only individual keys with a single `- id:` entry.
+
+- insert:
+    - id: dsh-vision-recognizer
+      name: 'dsh-vision-recognizer'
+      config:
+        providerId: vision-recognizer     # route id shown in the model picker
+        innerProvider: deepseek-official  # the text-only adapter this proxy wraps
+        provider: dashscope               # active provider preset (see Settings → Plugins)
+        apiKey: ''                        # literal key; falls back to the provider's env var
+        model: ''                         # empty = provider preset default
+        baseURL: ''                       # empty = provider preset default
+        maxTokens: 4096
+        timeoutMs: 120000
+        marker: '[图片转译]'
+        autoLocalOllama: true             # probe http://localhost:11434 and prepend to fallback
+        fallbackModels: []                # extra {provider, model, baseURL?, apiKey?} entries
