@@ -23,18 +23,25 @@ const zh = {
   title: '识图 API 配置',
   intro: '选择视觉模型供应商并配置 API Key。附加图片会被自动转译为文字，对话仍由 DeepSeek 作答。',
   providerLabel: '供应商',
+  providerHint: '选择图片转译使用的视觉模型供应商。可在下方覆盖模型与接口地址。',
   apiKeyLabel: 'API Key',
   apiKeyHint: '留空则读取该供应商的环境变量；本地 Ollama 无需 Key。',
   apiKeyConfigured: '已配置',
   apiKeyUnset: '未配置',
   modelLabel: '模型',
+  modelHint: '视觉模型 ID。留空使用该供应商的默认模型。',
   modelPlaceholder: '留空使用供应商默认',
   baseUrlLabel: '接口地址',
+  baseUrlHint: 'OpenAI 兼容接口地址（…/chat/completions 会自动拼接）。留空使用该供应商的默认地址。',
   baseUrlPlaceholder: '留空使用供应商默认',
   maxTokensLabel: '最大输出 token',
+  maxTokensHint: '视觉模型单次输出的 token 上限，越大转译越详尽、也越贵。',
   timeoutLabel: '超时（毫秒）',
+  timeoutHint: '请求超时时间。本地/匿名端点会被强制限制在 20 秒内。',
   markerLabel: '转译标记',
+  markerHint: '转译文本的前缀标记，DeepSeek 靠它区分「这是图片转译的内容」。默认 [图片转译]。',
   autoOllamaLabel: '自动探测本地 Ollama',
+  autoOllamaHint: '启动时探测本机 http://localhost:11434 的 Ollama，检测到则作为兜底——图片不出本机、无需 Key。',
   save: '保存',
   saving: '保存中…',
   saved: '已保存，立即生效',
@@ -48,18 +55,25 @@ const en = {
   title: 'Vision API configuration',
   intro: 'Pick a vision provider and configure its API key. Attached images are transcribed to text; DeepSeek still answers the conversation.',
   providerLabel: 'Provider',
+  providerHint: 'Vision provider used to transcribe attached images. Model and endpoint can be overridden below.',
   apiKeyLabel: 'API key',
   apiKeyHint: 'Leave blank to read the provider env var; local Ollama needs none.',
   apiKeyConfigured: 'configured',
   apiKeyUnset: 'not configured',
   modelLabel: 'Model',
+  modelHint: 'Vision model id. Leave blank for the provider default.',
   modelPlaceholder: 'Leave blank for the provider default',
   baseUrlLabel: 'Endpoint',
+  baseUrlHint: 'OpenAI-compatible endpoint (…/chat/completions is appended). Leave blank for the provider default.',
   baseUrlPlaceholder: 'Leave blank for the provider default',
   maxTokensLabel: 'Max output tokens',
+  maxTokensHint: 'Output token cap for the vision model; larger is more thorough but costs more.',
   timeoutLabel: 'Timeout (ms)',
+  timeoutHint: 'Request timeout. Local/anonymous endpoints are hard-capped at 20s.',
   markerLabel: 'Transcription marker',
+  markerHint: 'Text prefix prepended to each transcription, so DeepSeek can tell image transcriptions apart. Default [图片转译].',
   autoOllamaLabel: 'Auto-detect local Ollama',
+  autoOllamaHint: 'Probe local Ollama at http://localhost:11434 at startup and use it as a fallback — images never leave your machine and no key is needed.',
   save: 'Save',
   saving: 'Saving…',
   saved: 'Saved — takes effect immediately',
@@ -90,6 +104,9 @@ const CSS = `
 .vrg-status{font-size:12px}
 .vrg-status.ok{color:var(--dsw-alias-state-success-primary,#16a34a)}
 .vrg-status.err{color:var(--dsw-alias-state-error-primary,#dc2626)}
+.vrg-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:99px;border:1px solid var(--dsw-alias-border-l2,#e5e7eb);color:var(--dsw-alias-label-tertiary,#9ca3af);font-size:10px;font-weight:600;line-height:1;cursor:help;margin-left:6px;vertical-align:middle;user-select:none}
+.vrg-tip .vrg-tiptext{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%) translateY(-2px);background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,#e5e7eb);border-radius:8px;padding:8px 10px;font-size:12px;font-weight:400;line-height:1.5;color:var(--dsw-alias-label-primary,#1f2328);width:max-content;max-width:280px;white-space:normal;text-align:left;z-index:60;opacity:0;pointer-events:none;transition:opacity .12s ease,transform .12s ease;box-shadow:0 6px 20px rgba(0,0,0,.14)}
+.vrg-tip:hover .vrg-tiptext,.vrg-tip:focus-visible .vrg-tiptext{opacity:1;transform:translateX(-50%) translateY(0)}
 `
 
 function injectStyles() {
@@ -99,6 +116,13 @@ function injectStyles() {
   tag.dataset.pluginCss = 'dsh-vision-recognizer'
   tag.textContent = CSS
   document.head.appendChild(tag)
+}
+
+/** A small "?" circle whose hover/focus reveals a tooltip explaining the field. */
+function HelpTip({ text }) {
+  return h('span', { className: 'vrg-tip', tabIndex: 0, 'aria-label': text },
+    '?',
+    h('span', { className: 'vrg-tiptext' }, text))
 }
 
 function VisionPanel({ t, locale }) {
@@ -159,7 +183,11 @@ function VisionPanel({ t, locale }) {
         autoLocalOllama: form.autoLocalOllama,
       }),
     })
-      .then((res) => res.json().then((body) => ({ status: res.status, body })))
+      .then((res) => res.text().then((text) => {
+        let body = {}
+        try { body = text ? JSON.parse(text) : {} } catch { body = { error: text.slice(0, 200) } }
+        return { status: res.status, body }
+      }))
       .then(({ status: httpStatus, body }) => {
         if (httpStatus === 200 && body.ok) {
           setForm((f) => (f === null ? f : {
@@ -190,7 +218,7 @@ function VisionPanel({ t, locale }) {
       h('h3', { className: 'vrg-title' }, t('title')),
       h('p', { className: 'vrg-intro' }, t('intro'))),
     h('div', { className: 'vrg-field' },
-      h('label', { className: 'vrg-label' }, t('providerLabel')),
+      h('label', { className: 'vrg-label' }, t('providerLabel'), h(HelpTip, { text: t('providerHint') })),
       h('select', {
         className: 'vrg-input',
         value: form.provider,
@@ -201,7 +229,8 @@ function VisionPanel({ t, locale }) {
     h('div', { className: 'vrg-field' },
       h('label', { className: 'vrg-label' }, t('apiKeyLabel'),
         h('span', { className: 'vrg-badge' + (form.apiKeyConfigured ? ' on' : '') },
-          form.apiKeyConfigured ? t('apiKeyConfigured') : t('apiKeyUnset'))),
+          form.apiKeyConfigured ? t('apiKeyConfigured') : t('apiKeyUnset')),
+        h(HelpTip, { text: t('apiKeyHint') })),
       h('input', {
         className: 'vrg-input',
         type: 'password',
@@ -213,7 +242,7 @@ function VisionPanel({ t, locale }) {
       h('p', { className: 'vrg-hint' }, t('apiKeyHint'))),
     h('div', { className: 'vrg-row' },
       h('div', { className: 'vrg-field' },
-        h('label', { className: 'vrg-label' }, t('modelLabel')),
+        h('label', { className: 'vrg-label' }, t('modelLabel'), h(HelpTip, { text: t('modelHint') })),
         h('input', {
           className: 'vrg-input',
           value: form.model,
@@ -221,7 +250,7 @@ function VisionPanel({ t, locale }) {
           onChange: (e) => set('model', e.target.value),
         })),
       h('div', { className: 'vrg-field' },
-        h('label', { className: 'vrg-label' }, t('baseUrlLabel')),
+        h('label', { className: 'vrg-label' }, t('baseUrlLabel'), h(HelpTip, { text: t('baseUrlHint') })),
         h('input', {
           className: 'vrg-input',
           value: form.baseURL,
@@ -230,7 +259,7 @@ function VisionPanel({ t, locale }) {
         }))),
     h('div', { className: 'vrg-row' },
       h('div', { className: 'vrg-field' },
-        h('label', { className: 'vrg-label' }, t('maxTokensLabel')),
+        h('label', { className: 'vrg-label' }, t('maxTokensLabel'), h(HelpTip, { text: t('maxTokensHint') })),
         h('input', {
           className: 'vrg-input',
           inputMode: 'numeric',
@@ -238,7 +267,7 @@ function VisionPanel({ t, locale }) {
           onChange: (e) => set('maxTokens', e.target.value),
         })),
       h('div', { className: 'vrg-field' },
-        h('label', { className: 'vrg-label' }, t('timeoutLabel')),
+        h('label', { className: 'vrg-label' }, t('timeoutLabel'), h(HelpTip, { text: t('timeoutHint') })),
         h('input', {
           className: 'vrg-input',
           inputMode: 'numeric',
@@ -246,7 +275,7 @@ function VisionPanel({ t, locale }) {
           onChange: (e) => set('timeoutMs', e.target.value),
         }))),
     h('div', { className: 'vrg-field' },
-      h('label', { className: 'vrg-label' }, t('markerLabel')),
+      h('label', { className: 'vrg-label' }, t('markerLabel'), h(HelpTip, { text: t('markerHint') })),
       h('input', {
         className: 'vrg-input',
         value: form.marker,
@@ -258,7 +287,8 @@ function VisionPanel({ t, locale }) {
         checked: form.autoLocalOllama,
         onChange: (e) => set('autoLocalOllama', e.target.checked),
       }),
-      t('autoOllamaLabel')),
+      t('autoOllamaLabel'),
+      h(HelpTip, { text: t('autoOllamaHint') })),
     form.provider === 'custom' && h('p', { className: 'vrg-hint' }, t('requiredHint')),
     h('div', { className: 'vrg-actions' },
       h('button', { className: 'vrg-btn', disabled: saving, onClick: save }, saving ? t('saving') : t('save')),
