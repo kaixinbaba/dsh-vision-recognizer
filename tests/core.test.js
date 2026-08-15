@@ -125,3 +125,15 @@ test('buildAnthropicRequest emits the Messages wire format', () => {
     assert.equal(body.messages[0].content[0].type, 'image');
     assert.deepEqual(body.messages[0].content[0].source, { type: 'base64', media_type: 'image/png', data: 'QUJD' });
 });
+
+test('classifyHttpError detects image dimension errors before context errors', () => {
+    const qwen = classifyHttpError(400, 'InternalError.Algo.InvalidParameter: The image length and width do not meet the model restrictions. [height:8 or width:8 must be larger than 10]');
+    assert.equal(qwen.kind, 'image_dimensions');
+    const context = classifyHttpError(400, 'context length too large');
+    assert.equal(context.kind, 'context_too_large');
+});
+
+test('request builders honor a custom prompt', () => {
+    const req = buildOpenAIRequest({ baseURL: 'https://x/v1', model: 'm', maxTokens: 10, apiKey: '' }, 'QUJD', 'image/png', 'Reply with exactly: OK');
+    assert.equal(JSON.parse(req.body).messages[0].content[1].text, 'Reply with exactly: OK');
+});

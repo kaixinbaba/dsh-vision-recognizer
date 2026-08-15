@@ -45,6 +45,10 @@ const zh = {
   save: '保存',
   saving: '保存中…',
   saved: '已保存，立即生效',
+  test: '测试',
+  testing: '测试中…',
+  testOk: '连接正常',
+  testFailed: '测试失败',
   saveFailed: '保存失败',
   loadFailed: '配置加载失败，请稍后重试',
   requiredHint: '自定义供应商需填写接口地址与模型',
@@ -77,6 +81,10 @@ const en = {
   save: 'Save',
   saving: 'Saving…',
   saved: 'Saved — takes effect immediately',
+  test: 'Test',
+  testing: 'Testing…',
+  testOk: 'Connection OK',
+  testFailed: 'Test failed',
   saveFailed: 'Save failed',
   loadFailed: 'Failed to load configuration',
   requiredHint: 'A custom provider needs an endpoint and a model',
@@ -101,6 +109,7 @@ const CSS = `
 .vrg-actions{display:flex;align-items:center;gap:12px}
 .vrg-btn{border:none;border-radius:8px;padding:8px 18px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;background:var(--dsw-alias-button-primary-fill,#4f6ef7);color:var(--dsw-alias-label-primary-foreground,#fff)}
 .vrg-btn:disabled{opacity:.6;cursor:default}
+.vrg-btn-ghost{background:var(--dsw-alias-bg-layer-2,#f3f4f6);color:var(--dsw-alias-label-primary,#1f2328)}
 .vrg-status{font-size:12px}
 .vrg-status.ok{color:var(--dsw-alias-state-success-primary,#16a34a)}
 .vrg-status.err{color:var(--dsw-alias-state-error-primary,#dc2626)}
@@ -130,6 +139,7 @@ function VisionPanel({ t, locale }) {
   const [loadError, setLoadError] = useState(false)
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [testing, setTesting] = useState(false)
   const [status, setStatus] = useState(null)
 
   const localeSnap = React.useSyncExternalStore(
@@ -165,6 +175,36 @@ function VisionPanel({ t, locale }) {
     setForm((f) => (f === null ? f : { ...f, [key]: value }))
   }, [])
 
+  const runTest = useCallback(() => {
+    if (form === null || testing) return
+    setTesting(true)
+    setStatus(null)
+    fetch('/dsh-vision-recognizer/test', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        provider: form.provider,
+        apiKey: form.apiKey,
+        model: form.model,
+        baseURL: form.baseURL,
+      }),
+    })
+      .then((res) => res.text().then((text) => {
+        let body = {}
+        try { body = text ? JSON.parse(text) : {} } catch { body = { error: text.slice(0, 200) } }
+        return body
+      }))
+      .then((body) => {
+        if (body.ok) {
+          setStatus({ kind: 'ok', message: t('testOk') + (typeof body.durationMs === 'number' ? ' · ' + body.durationMs + 'ms' : '') })
+        } else {
+          setStatus({ kind: 'err', message: t('testFailed') + (body.error ? ': ' + body.error : '') })
+        }
+      })
+      .catch((error) => setStatus({ kind: 'err', message: t('testFailed') + ': ' + String(error) }))
+      .finally(() => setTesting(false))
+  }, [form, testing, t])
+
   const save = useCallback(() => {
     if (form === null || saving) return
     setSaving(true)
@@ -198,13 +238,16 @@ function VisionPanel({ t, locale }) {
             baseURL: body.config.baseURL || '',
           }))
           setStatus({ kind: 'ok', message: t('saved') })
+          // Auto-test the just-saved config so the user immediately sees
+          // whether the provider / key / model actually works.
+          runTest()
         } else {
           setStatus({ kind: 'err', message: t('saveFailed') + (body.error ? ': ' + body.error : '') })
         }
       })
       .catch((error) => setStatus({ kind: 'err', message: t('saveFailed') + ': ' + String(error) }))
       .finally(() => setSaving(false))
-  }, [form, saving, t])
+  }, [form, saving, t, runTest])
 
   if (loadError) return h('p', { className: 'vrg-intro' }, t('loadFailed'))
   if (form === null || data === null) return null
@@ -292,6 +335,7 @@ function VisionPanel({ t, locale }) {
     form.provider === 'custom' && h('p', { className: 'vrg-hint' }, t('requiredHint')),
     h('div', { className: 'vrg-actions' },
       h('button', { className: 'vrg-btn', disabled: saving, onClick: save }, saving ? t('saving') : t('save')),
+      h('button', { className: 'vrg-btn vrg-btn-ghost', disabled: testing, onClick: runTest }, testing ? t('testing') : t('test')),
       status !== null && h('span', { className: 'vrg-status ' + status.kind }, status.message)))
 }
 

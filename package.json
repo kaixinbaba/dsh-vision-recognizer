@@ -1,6 +1,6 @@
 {
   "name": "dsh-vision-recognizer",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "DeepSeek Harness image recognition plugin: keep DeepSeek as the conversation brain while a configurable vision model (15+ providers, OpenAI-compatible + Anthropic) transcribes attached images. Configurable from Settings → Plugins.",
   "private": false,
   "type": "module",
