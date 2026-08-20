@@ -1,7 +1,7 @@
 {
   "name": "dsh-vision-recognizer",
-  "version": "0.1.2",
-  "description": "DeepSeek Harness image recognition plugin: keep DeepSeek as the conversation brain while a configurable vision model (15+ providers, OpenAI-compatible + Anthropic) transcribes attached images. Configurable from Settings → Plugins.",
+  "version": "0.1.3",
+  "description": "DeepSeek Harness image recognition plugin: keep DeepSeek as the conversation brain while a configurable vision model (15+ providers, OpenAI-compatible + Anthropic) transcribes attached images.",
   "private": false,
   "type": "module",
   "main": "lib/index.js",
@@ -70,12 +70,18 @@
     "cordis.patch.yml",
     "README.md",
     "README.zh-CN.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "dependencies": {
     "schemastery": "^3.18.0"
   },
   "scripts": {
-    "test": "node --test tests/*.test.js"
+    "check": "node --check lib/index.js && node --check client/client.js && node --check tests/integration/*.test.js && node --check scripts/verify-plugin.mjs && node --check scripts/smoke-install.mjs",
+    "test": "npm run check && node --test tests/*.test.js && npm run test:integration",
+    "test:integration": "node --test tests/integration/*.test.js",
+    "verify:plugin": "node scripts/verify-plugin.mjs . --level=standard",
+    "smoke:install": "node scripts/smoke-install.mjs .",
+    "prepack": "npm test && npm run verify:plugin"
   }
 }
