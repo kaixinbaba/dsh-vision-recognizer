@@ -1,7 +1,7 @@
 {
   "name": "dsh-vision-recognizer",
-  "version": "0.1.3",
-  "description": "DeepSeek Harness image recognition plugin: keep DeepSeek as the conversation brain while a configurable vision model (15+ providers, OpenAI-compatible + Anthropic) transcribes attached images.",
+  "version": "0.2.0",
+  "description": "Adaptive image routing for DeepSeek Harness: pass images directly to native multimodal models and transcribe them only for text-only models.",
   "private": false,
   "type": "module",
   "main": "lib/index.js",
@@ -41,7 +41,7 @@
   ],
   "engines": {
     "node": ">=22.19.0",
-    "dsh": ">=0.1.0-rc.6"
+    "dsh": ">=0.1.0-rc.8"
   },
   "dsh": {
     "bundle": {
@@ -83,5 +83,9 @@
     "verify:plugin": "node scripts/verify-plugin.mjs . --level=standard",
     "smoke:install": "node scripts/smoke-install.mjs .",
     "prepack": "npm test && npm run verify:plugin"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "4.0.1",
+    "@deepseek-ai/dsh-llm": "0.1.0-rc.8"
   }
 }

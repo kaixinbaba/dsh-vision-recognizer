@@ -4,17 +4,19 @@ English | [简体中文](README.zh-CN.md)
 
 **Keep DeepSeek as the conversation brain, attach images anyway, and switch the image-recognition provider any time from Settings → Plugins.** A vision plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
 
-It registers a new provider route (default `vision-recognizer`, shown as **DeepSeek + 识图** in the model picker) that wraps the real DeepSeek adapter: it declares image input (so the attachment preflight and the `read_image` gate admit images) and, in the request stream, **transcribes every attached image to text through the vision model you select**, then delegates the text-only conversation to DeepSeek. DeepSeek still answers; recognition is an add-on.
+It registers an adaptive provider route (default `vision-recognizer`, shown as **DeepSeek + 智能识图** in the model picker) that wraps the configured conversation provider. The wrapper always admits image attachments, then resolves the exact selected model: models declaring native image input receive the original image blocks directly; text-only or unknown-capability models receive text transcribed by the vision model you configure. DeepSeek remains the default wrapped conversation provider.
 
 ```
-attached image ──▶ vision-recognizer route ──▶ vision-model transcription (OCR + layout + detail)
-                     │                          │
-                     ▼                          ▼
-              DeepSeek answers ◀── text-only conversation (image replaced by [图片转译] text)
+attached image ──▶ vision-recognizer route ──▶ selected model supports image? ── yes ─▶ native image request
+                                                      │
+                                                      no
+                                                      ▼
+                                  configured vision transcription ──▶ text-only selected model
 ```
 
 ## Features
 
+- **Adaptive routing**: native multimodal models receive images unchanged; only text-only or unknown-capability models invoke the configured transcription fallback.
 - **One-click install**: `dsh plugin --profile web add dsh-vision-recognizer` — no build scripts, no `sharp` approval (no native dependencies at all).
 - **Configure from Settings → Plugins → Vision**: pick a provider, enter an API key, override model / endpoint / token cap / timeout / marker. Saved changes take effect immediately, no restart.
 - **15+ providers, domestic and international**: OpenAI, Anthropic Claude, Google Gemini, OpenRouter, Azure OpenAI, Ollama (local), plus Alibaba DashScope, QwenCloud (Intl), Zhipu GLM, Baidu Qianfan, iFlytek Spark, Moonshot Kimi, Tencent Hunyuan, Volcengine Doubao, SiliconFlow. Any OpenAI-compatible endpoint works via the custom provider.
@@ -42,11 +44,13 @@ dsh plugin --profile web add file:/path/to/dsh-vision-recognizer
 
 Restart `dsh web`, then:
 
-1. Pick **DeepSeek + 识图** in the model selector;
-2. Open **Settings → Plugins → Vision**, choose a provider, enter an API key, save;
-3. Paste an image into any conversation → you should see the `[图片转译]` marker followed by a DeepSeek answer.
+1. Pick **DeepSeek + 智能识图** in the model selector;
+2. Open **Settings → Plugins → Vision**, choose the fallback vision provider, enter an API key, save;
+3. Paste an image into a conversation. A native multimodal selected model receives it directly; a text-only selected model receives the `[图片转译]` result.
 
-With no key and no local Ollama, a turn fails fast in a few seconds with guidance — that is the intended anti-hang behavior.
+With a native multimodal selected model, no fallback key is required. With a text-only model and no key or local Ollama, the turn fails fast with guidance instead of hanging.
+
+> **Scope:** adaptive fallback applies while the **DeepSeek + 智能识图** wrapper route is selected. Selecting another provider route calls that route directly. rc8 does not expose a public decorator hook that can add fallback behavior to every existing provider route.
 
 ## Supported providers
 
@@ -78,17 +82,21 @@ Config saved from the UI is written to `$DSH_HOME/vision-recognizer.json` and me
 
 ## Implementation notes (for plugin authors)
 
-Only stable rc.6 public interfaces are used:
+The adaptive wrapper uses rc8 public interfaces only:
 
-- `ctx.llm.registration(innerProvider).adapter` — fetch the wrapped adapter;
-- `ctx.llm.registerAdapter([providerId], proxyAdapter)` — register the new route;
-- proxying `resolveModel` overrides `inputModalities` to `['text', 'image']`;
-- proxying `stream` transcribes image blocks (`{ type: 'image', attachment }`, bytes read via `ctx.get('attachments').readImage(ref)`), then `yield*` forwards the inner adapter's stream;
-- the settings UI rides the `settings.plugins.tab` slot plus custom `webServer` routes, persisting config to its own JSON file (independent of the api-proxy settings allowlist).
+- `ctx.llm.listModels(innerProvider)` and `resolveModelInfo(innerProvider, model)` inspect the exact target model and rebind its metadata to the wrapper route;
+- `ctx.llm.prepareCall(...)` delegates to the configured target provider without depending on private adapter registrations;
+- proxy `resolveModel` advertises `['text', 'image']` so the wrapper admits images, while proxy `stream` uses the target's original modality declaration to choose native pass-through or transcription;
+- transcription clones request messages and replaces image blocks only in the delegated request; durable session history keeps the original image references;
+- the settings UI rides the `settings.plugins.tab` slot plus custom `webServer` routes, persisting config to its own JSON file.
+
+### rc8 limitations
+
+Capability lookup and prepared target dispatch are separate public operations in rc8. A target adapter replaced by HMR in that tiny interval can race the routing decision. Nested target delegation also enters the `llm/stream` waterfall a second time, and DSH may strip provider-private replay metadata when wrapper and target adapters differ. Ordinary text/image history is preserved; provider-specific replay signatures may lose their optimization or fidelity until DSH exposes an atomic delegation handle.
 
 ## Privacy
 
-Transcription sends image bytes (base64, HTTPS) to the vision endpoint you configure — **image data leaves your machine** unless the endpoint is local (e.g. Ollama). Nothing beyond the harness's own attachment storage persists any image. For sensitive images, use your own endpoint or a local model, or don't install this plugin.
+Native multimodal routing sends image bytes to the selected conversation provider. The text-only fallback instead sends them (base64, normally HTTPS) to the vision endpoint you configure. In either mode, image data leaves your machine unless that endpoint is local. Nothing beyond the harness's own attachment storage persists an image.
 
 ## License
 
